@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         progressBar.style.width = '0%';
         progressPercentage.textContent = '0%';
-        progressText.textContent = `准备扫描 ${subnet}.x ...`;
+        progressText.textContent = `准备检查 ${subnet}.x ...`;
 
         if (activeEventSource) {
             activeEventSource.close();
@@ -167,10 +167,40 @@ document.addEventListener('DOMContentLoaded', () => {
     function addOrUpdateResult(res) {
         const existingIdx = successfulResults.findIndex(r => r.ip === res.ip);
         if (existingIdx >= 0) {
+            res.latest_project = successfulResults[existingIdx].latest_project;
             successfulResults[existingIdx] = res;
         } else {
             successfulResults.push(res);
         }
+        
+        if (res.label_studio_ports.length > 0 && res.latest_project === undefined) {
+            res.latest_project = { loading: true };
+            const port = res.label_studio_ports[0];
+            const searchVal = document.getElementById('projectSearch').value.trim();
+            let apiUrl = `/api/latest_project?ip=${res.ip}&port=${port}`;
+            if (searchVal) {
+                apiUrl += `&search=${encodeURIComponent(searchVal)}`;
+            }
+            fetch(apiUrl)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        res.latest_project = { error: data.error };
+                    } else if (data.not_found) {
+                        res.latest_project = { not_found: true };
+                    } else if (data.project) {
+                        res.latest_project = { project: data.project };
+                    } else {
+                        res.latest_project = { project: null };
+                    }
+                    renderTable();
+                })
+                .catch(err => {
+                    res.latest_project = { error: '网络错误' };
+                    renderTable();
+                });
+        }
+
         renderTable();
     }
 
@@ -226,25 +256,65 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             tr.appendChild(tdLS);
 
-            // Actions
-            const tdAction = document.createElement('td');
+            // 项目名称
+            const tdProject = document.createElement('td');
+            tdProject.style.verticalAlign = 'middle';
             if (res.label_studio_ports.length > 0) {
-                const a = document.createElement('a');
-                a.href = `http://${res.ip}:${res.label_studio_ports[0]}/`;
-                a.target = '_blank';
-                a.className = 'link-btn';
-                a.innerHTML = '直达应用 ↗';
-                tdAction.appendChild(a);
+                if (res.latest_project) {
+                    if (res.latest_project.loading) {
+                        tdProject.innerHTML = '<div class="loader-spinner" style="width:14px;height:14px;border-width:2px;border-color:var(--text-muted);border-top-color:transparent;display:inline-block;vertical-align:middle;"></div> <span style="font-size:0.85rem;color:var(--text-muted);vertical-align:middle;">检查中...</span>';
+                    } else if (res.latest_project.error) {
+                        tdProject.innerHTML = `<span style="font-size:0.85rem;color:var(--text-danger);" title="${res.latest_project.error}">获取失败</span>`;
+                    } else if (res.latest_project.not_found) {
+                        tdProject.innerHTML = '<span style="font-size:0.85rem;color:#f0883e;font-weight:500;">未找到相关项目</span>';
+                    } else if (res.latest_project.project) {
+                        const proj = res.latest_project.project;
+                        const projUrl = `http://${res.ip}:${res.label_studio_ports[0]}/projects/${proj.id}/data`;
+                        tdProject.innerHTML = `<a href="${projUrl}" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:500;">${proj.title}</a>`;
+                    } else {
+                        tdProject.innerHTML = '<span style="font-size:0.85rem;color:var(--text-muted);">暂无项目</span>';
+                    }
+                } else {
+                    tdProject.textContent = '-';
+                }
             } else {
-                const a = document.createElement('a');
-                a.href = `http://${res.ip}:${res.open_ports[0]}/`;
-                a.target = '_blank';
-                a.className = 'link-btn';
-                a.style.color = 'var(--text-muted)';
-                a.innerHTML = `查看端口 ${res.open_ports[0]} ↗`;
-                tdAction.appendChild(a);
+                tdProject.textContent = '-';
             }
-            tr.appendChild(tdAction);
+            tr.appendChild(tdProject);
+
+            // 项目描述
+            const tdDesc = document.createElement('td');
+            tdDesc.style.fontSize = '0.85rem';
+            tdDesc.style.color = 'var(--text-muted)';
+            tdDesc.style.maxWidth = '200px';
+            tdDesc.style.overflow = 'hidden';
+            tdDesc.style.textOverflow = 'ellipsis';
+            tdDesc.style.whiteSpace = 'nowrap';
+            if (res.label_studio_ports.length > 0 && res.latest_project && res.latest_project.project) {
+                const desc = res.latest_project.project.description || '';
+                tdDesc.textContent = desc || '-';
+                if (desc) tdDesc.title = desc;
+            } else {
+                tdDesc.textContent = '-';
+            }
+            tr.appendChild(tdDesc);
+
+            // 更新时间
+            const tdTime = document.createElement('td');
+            tdTime.style.fontSize = '0.85rem';
+            tdTime.style.color = 'var(--text-muted)';
+            tdTime.style.whiteSpace = 'nowrap';
+            if (res.label_studio_ports.length > 0 && res.latest_project && res.latest_project.project && res.latest_project.project.updated_at) {
+                try {
+                    const d = new Date(res.latest_project.project.updated_at);
+                    tdTime.textContent = d.toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+                } catch(_) {
+                    tdTime.textContent = res.latest_project.project.updated_at;
+                }
+            } else {
+                tdTime.textContent = '-';
+            }
+            tr.appendChild(tdTime);
 
             resultsBody.appendChild(tr);
         });
@@ -263,10 +333,10 @@ document.addEventListener('DOMContentLoaded', () => {
         subnetSelect.disabled = false;
         progressBar.style.width = '100%';
         progressPercentage.textContent = '100%';
-        progressText.textContent = '扫描完成！';
+        progressText.textContent = '检查完成！';
         
         if (successfulResults.length === 0) {
-            resultsBody.innerHTML = '<tr class="empty-row"><td colspan="4">在该网段中未检测到任何开放了探测端口 (8080-8085) 的机器。</td></tr>';
+            resultsBody.innerHTML = '<tr class="empty-row"><td colspan="6">在该网段中未检测到任何开放了探测端口 (8080-8085) 的机器。</td></tr>';
         }
 
         // Restart loop if enabled
