@@ -128,6 +128,85 @@ async def scan_network(subnet: str, skip_ips: str = ""):
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+@app.get("/api/latest_project")
+async def get_latest_project(ip: str, port: int, search: str = ""):
+    url_base = f"http://{ip}:{port}"
+    login_url = f"{url_base}/user/login/"
+    projects_url = f"{url_base}/api/projects/"
+    
+    import yarl
+    timeout = aiohttp.ClientTimeout(total=10)
+    jar = aiohttp.CookieJar(unsafe=True)
+    async with aiohttp.ClientSession(timeout=timeout, cookie_jar=jar) as session:
+        try:
+            # 1. Get CSRF token
+            async with session.get(login_url) as resp:
+                await resp.text()
+            
+            url_obj = yarl.URL(url_base)
+            csrftoken_cookie = session.cookie_jar.filter_cookies(url_obj).get('csrftoken')
+            
+            if not csrftoken_cookie:
+                return {"error": "未能获取 csrf token"}
+                
+            token_value = csrftoken_cookie.value
+            
+            # 2. Login
+            data = {
+                "csrfmiddlewaretoken": token_value,
+                "email": "student@yncjzy.com",
+                "password": "1q2w3e4r"
+            }
+            headers = {"Referer": login_url, "Origin": url_base}
+            
+            async with session.post(login_url, data=data, headers=headers, allow_redirects=False) as resp:
+                if resp.status not in (200, 302):
+                    return {"error": f"登录失败 (状态码 {resp.status})"}
+                
+            # 3. Get projects
+            async with session.get(projects_url) as resp:
+                if resp.status != 200:
+                    return {"error": f"认证失败或无权限 (状态码 {resp.status})"}
+                
+                resp_json = await resp.json()
+                
+                projects = []
+                if isinstance(resp_json, list):
+                    projects = resp_json
+                elif isinstance(resp_json, dict) and "results" in resp_json:
+                    projects = resp_json["results"]
+                
+                if not projects:
+                    return {"project": None}
+                
+                # 按创建时间倒序
+                projects_sorted = sorted(projects, key=lambda p: p.get("created_at", str(p.get("id", ""))), reverse=True)
+                
+                target = None
+                if search.strip():
+                    # 模糊搜索：在排序后的列表中找第一个标题包含搜索词的
+                    search_lower = search.strip().lower()
+                    for p in projects_sorted:
+                        if search_lower in p.get("title", "").lower():
+                            target = p
+                            break
+                    if not target:
+                        return {"project": None, "not_found": True}
+                else:
+                    target = projects_sorted[0]
+                
+                return {
+                    "project": {
+                        "id": target.get("id"),
+                        "title": target.get("title", "未命名项目"),
+                        "description": target.get("description", ""),
+                        "created_at": target.get("created_at"),
+                        "updated_at": target.get("updated_at", target.get("created_at", ""))
+                    }
+                }
+        except Exception as e:
+            return {"error": f"请求异常: {str(e)}"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=3000)
