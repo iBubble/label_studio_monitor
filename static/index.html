@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Label Studio 局域网雷达</title>
+    <title>Label Studio 项目检查</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
     <link rel="stylesheet" href="/static/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -11,9 +12,12 @@
     <div class="app-container">
         <header class="glass-panel">
             <div class="header-content">
-                <div>
-                    <h1>Label Studio 雷达探测器</h1>
-                    <p class="subtitle">深度扫描局域网，精确定位 Label Studio 服务</p>
+                <div style="display: flex; align-items: center; gap: 1.2rem;">
+                    <img src="/static/logo.png" alt="App Logo" style="width: 56px; height: 56px; border-radius: 14px; box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3); border: 1px solid rgba(88,166,255,0.4); object-fit: cover;">
+                    <div>
+                        <h1>Label Studio 项目检查</h1>
+                        <p class="subtitle">扫描局域网，检查学生机 Label Studio 项目状态</p>
+                    </div>
                 </div>
                 <div class="controls">
                     <div class="auto-scan-toggle" style="display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; color: var(--text-muted); margin-right: 1rem;">
@@ -24,13 +28,17 @@
                         <span style="font-size:0.85rem">分/次</span>
                         <span id="countdownText" style="display:none; color: var(--accent); font-family: monospace; margin-left:0.3rem;">(05:00)</span>
                     </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-right:1rem;">
+                        <label style="font-size:0.85rem;color:var(--text-muted);white-space:nowrap;">项目名称:</label>
+                        <input type="text" id="projectSearch" placeholder="留空则显示最新项目" style="width:160px;background:rgba(13,17,23,0.8);color:var(--text-primary);border:1px solid var(--panel-border);padding:0.3rem 0.6rem;border-radius:6px;outline:none;font-size:0.85rem;">
+                    </div>
                     <div class="select-wrapper">
                         <select id="subnetSelect">
                             <option value="">正在加载本机网段...</option>
                         </select>
                     </div>
                     <button id="scanBtn" class="btn primary-btn" disabled>
-                        <span class="btn-text">开始扫描</span>
+                        <span class="btn-text">开始检查</span>
                         <div class="loader-spinner"></div>
                     </button>
                 </div>
@@ -43,7 +51,7 @@
                 <div class="stat-value" id="statTotal">-</div>
             </div>
             <div class="stat-card">
-                <div class="stat-title">已扫描完成</div>
+                <div class="stat-title">已检查完成</div>
                 <div class="stat-value" id="statScanned">-</div>
             </div>
             <div class="stat-card">
@@ -74,11 +82,13 @@
                             <th>IP 地址</th>
                             <th>开放端口 (8080-8085)</th>
                             <th>Label Studio 服务</th>
-                            <th>操作</th>
+                            <th>项目名称</th>
+                            <th>项目描述</th>
+                            <th>更新时间</th>
                         </tr>
                     </thead>
                     <tbody id="resultsBody">
-                        <tr class="empty-row"><td colspan="4">请选择网段并点击“开始扫描”以探索网络中 8080-8085 端口的服务。</td></tr>
+                        <tr class="empty-row"><td colspan="6">请选择网段并点击“开始检查”以检查网络中学生机的项目状态。</td></tr>
                     </tbody>
                 </table>
             </div>
