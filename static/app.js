@@ -130,12 +130,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         activeEventSource = new EventSource(`/api/scan?subnet=${encodeURIComponent(subnet)}&skip_ips=${encodeURIComponent(skipIps)}`);
 
+        const skippedCount = (isAuto && skipIps) ? skipIps.split(',').length : 0;
+
         activeEventSource.onmessage = (event) => {
             const data = JSON.parse(event.data);
             
             if (data.type === 'start') {
                 totalIps = data.total;
-                statTotal.textContent = totalIps + (isAuto ? successfulResults.length : 0);
+                statTotal.textContent = totalIps + skippedCount;
                 progressText.textContent = `扫描中，并发发起连接...`;
             } 
             else if (data.type === 'progress') {
@@ -146,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 progressPercentage.textContent = `${percent}%`;
                 
                 // Add base completed + already successful from before if auto
-                statScanned.textContent = completed + (isAuto && skipIps ? skipIps.split(',').length : 0);
+                statScanned.textContent = completed + skippedCount;
                 
                 const res = data.result;
                 if (res.open_ports.length > 0) {
