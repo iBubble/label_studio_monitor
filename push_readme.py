@@ -1,16 +1,15 @@
 import base64
 import os
-from github_utils import load_device_code, get_token, github_api_request
+from github_utils import get_token_smart, github_api_request
 
 def deploy_project():
-    device_code = load_device_code("de5af6c2dc3398a69c7e3a051bd5dc07ccfe8e15")
-    token = get_token(device_code)
+    token = get_token_smart()
     
-    # 2. Get User Info
+    # Get User Info
     user_res = github_api_request("GET", "https://api.github.com/user", token)
     username = user_res.get("login", "iBubble")
     
-    # 3. Upload README
+    # Upload README
     file_path = "README.md"
     if not os.path.exists(file_path):
         print("README.md not found!")
