@@ -1,13 +1,12 @@
 import base64
 import os
 import time
-from github_utils import load_device_code, get_token, github_api_request
+from github_utils import get_token_smart, github_api_request
 
 def deploy_project():
-    device_code = load_device_code("9275a91e3f1628b7e45a237e086e743c7de886ae")
-    token = get_token(device_code)
+    token = get_token_smart()
     
-    # 1. Create Repository
+    # 1. Create Repository (if not exists)
     print("Creating repository 'label_studio_monitor'...")
     url_create = "https://api.github.com/user/repos"
     payload = {
@@ -45,8 +44,6 @@ def deploy_project():
         "test_ls.py",
         "test_origin.py",
         "get_device_code.py",
-        "task.md",
-        "walkthrough.md"
     ]
     
     for file_path in files_to_upload:
