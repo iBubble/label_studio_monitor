@@ -45,3 +45,6 @@ http://localhost:3000
 ## 🛡️ License
 
 MIT License
+
+---
+*Last Updated: 2026-05-20 (Automatic token caching deployed)*
