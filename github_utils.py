@@ -176,7 +176,7 @@ def get_token(device_code):
 
 # ---- GitHub API 请求 ----
 
-def github_api_request(method, url, token, data=None):
+def github_api_request(method, url, token, data=None, retries=3):
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",
@@ -185,11 +185,28 @@ def github_api_request(method, url, token, data=None):
     }
     encoded_data = json.dumps(data).encode("utf-8") if data else None
     
-    req = urllib.request.Request(url, data=encoded_data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req, context=context) as response:
-            return json.loads(response.read().decode())
-    except urllib.error.HTTPError as e:
-        err_msg = e.read().decode()
-        print(f"HTTP Error {e.code}: {err_msg}")
-        return None
+    for attempt in range(retries):
+        req = urllib.request.Request(url, data=encoded_data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, context=context) as response:
+                return json.loads(response.read().decode())
+        except urllib.error.HTTPError as e:
+            # 404 是检查文件是否存在的正常状态，不需要重试；422 比如仓库已存在也不需要重试
+            if e.code in [404, 422]:
+                return None
+            try:
+                err_msg = e.read().decode()
+            except Exception:
+                err_msg = str(e)
+            print(f"HTTP Error {e.code} (Attempt {attempt+1}/{retries}): {err_msg}")
+            if attempt < retries - 1:
+                time.sleep(1.5 * (attempt + 1))
+            else:
+                return None
+        except Exception as e:
+            # 网络抖动、SSL 握手意外 EOF 等连接错误，进行指数退避重试
+            print(f"Network error (Attempt {attempt+1}/{retries}): {e}")
+            if attempt < retries - 1:
+                time.sleep(2 * (attempt + 1))
+            else:
+                return None
